@@ -374,6 +374,14 @@ def set_page_choice(page):
     st.session_state["page_choice"] = page
 
 
+def open_tracking(case_id):
+    """Open the tracking page with the newly created case ID prefilled."""
+    st.session_state["page_choice"] = "Track a report"
+    st.session_state["tracking_id_input"] = case_id
+    st.session_state["tracking_result"] = get_case(case_id)
+    st.session_state["tracking_searched"] = True
+
+
 def render_count_chart(counts, *, height=240):
     """Render readable dark-theme horizontal bars for the City signals page."""
     chart_data = counts.rename_axis("label").reset_index(name="count")
@@ -577,16 +585,26 @@ elif selected == "Report an issue":
             rows = load_data()
             rows.insert(0, item)
             save_data(rows)
-            st.success("Report received. Keep this tracking ID:")
+            st.success("Report received. Your tracking ID is ready:")
             st.code(case_id)
             st.caption(f"Suggested priority: {priority}. This is a transparent keyword-rule demo, not an AI model.")
+            st.info("Save this ID to check the report status and updates later.")
+            st.button(
+                "Track this report →", type="primary", use_container_width=True,
+                on_click=open_tracking, args=(case_id,),
+            )
 
 # ---------- Track ----------
 elif selected == "Track a report":
     st.markdown('<div class="section-kicker">PUBLIC STATUS LOOKUP</div>', unsafe_allow_html=True)
     st.title("Track a report")
-    entered = st.text_input("Tracking ID", placeholder="CVX-XXXXXXXX")
-    if st.button("Find report", type="primary"):
+    st.write("Enter the tracking ID shown after submitting a report.")
+    with st.form("track_lookup", clear_on_submit=False):
+        entered = st.text_input(
+            "Tracking ID", placeholder="CVX-XXXXXXXX", key="tracking_id_input"
+        )
+        find_report = st.form_submit_button("Find report", type="primary")
+    if find_report:
         st.session_state["tracking_result"] = get_case(entered.strip()) if entered.strip() else None
         st.session_state["tracking_searched"] = True
 

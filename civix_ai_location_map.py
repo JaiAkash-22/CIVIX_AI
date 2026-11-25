@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import altair as alt
 import streamlit as st
 import folium
 from folium.plugins import LocateControl
@@ -368,6 +369,35 @@ def status_counts(rows):
     return {s: sum(1 for r in rows if r.get("status") == s)
             for s in ("Submitted", "Assigned", "In progress", "Resolved")}
 
+def set_page_choice(page):
+    """Change the radio navigation value from a Streamlit callback."""
+    st.session_state["page_choice"] = page
+
+
+def render_count_chart(counts, *, height=240):
+    """Render readable dark-theme horizontal bars for the City signals page."""
+    chart_data = counts.rename_axis("label").reset_index(name="count")
+    chart = (
+        alt.Chart(chart_data)
+        .mark_bar(color="#69f0d1", cornerRadiusEnd=5)
+        .encode(
+            x=alt.X(
+                "count:Q", title="Reports",
+                axis=alt.Axis(labelColor="#eaf1fb", titleColor="#eaf1fb", gridColor="#263b54"),
+            ),
+            y=alt.Y(
+                "label:N", title=None, sort="-x",
+                axis=alt.Axis(labelColor="#eaf1fb", titleColor="#eaf1fb", labelLimit=220),
+            ),
+            tooltip=[alt.Tooltip("label:N", title="Category"), alt.Tooltip("count:Q", title="Reports")],
+        )
+        .properties(height=height, background="#101c2c")
+        .configure_view(stroke="#263b54")
+        .configure_axis(domainColor="#53677f", tickColor="#53677f")
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
 # ---------- Sidebar ----------
 rows = load_data()
 with st.sidebar:
@@ -430,16 +460,18 @@ if selected == "Overview":
         st.markdown('<div class="section-kicker">CITIZEN ACCESS</div>', unsafe_allow_html=True)
         st.subheader("Make a report")
         st.write("Describe the issue, add its location, and attach a photo if you have one.")
-        if st.button("＋  Submit a civic issue", type="primary", use_container_width=True):
-            st.session_state["page_choice"] = "Report an issue"
-            st.rerun()
+        st.button(
+            "＋  Submit a civic issue", type="primary", use_container_width=True,
+            on_click=set_page_choice, args=("Report an issue",),
+        )
     with right:
         st.markdown('<div class="section-kicker">OPERATIONS</div>', unsafe_allow_html=True)
         st.subheader("Response desk")
         st.write("Review reports, filter the queue, and update case status.")
-        if st.button("Open response desk  →", use_container_width=True):
-            st.session_state["page_choice"] = "Response desk"
-            st.rerun()
+        st.button(
+            "Open response desk  →", use_container_width=True,
+            on_click=set_page_choice, args=("Response desk",),
+        )
 
     st.markdown("---")
     st.subheader("Latest reports")
@@ -631,10 +663,10 @@ elif selected == "City signals":
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("Reports by issue type")
-            st.bar_chart(df["category"].value_counts())
+            render_count_chart(df["category"].value_counts())
         with c2:
             st.subheader("Reports by status")
-            st.bar_chart(df["status"].value_counts())
+            render_count_chart(df["status"].value_counts())
         st.subheader("Most-reported areas")
-        st.bar_chart(df["area"].value_counts().head(10))
+        render_count_chart(df["area"].value_counts().head(10), height=300)
         st.caption("This is a view of local prototype data, not official city-wide statistics.")
